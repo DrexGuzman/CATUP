@@ -1,0 +1,3 @@
+.bus-booking-form label { font-weight: 600; }
+.bus-booking-form input, .bus-booking-form select { width: 100%; max-width: 420px; padding: 6px; margin-bottom: 8px; }
+.bus-booking-error { color: #a00; background: #fee; padding: 8px; border-left: 4px solid #a00; }

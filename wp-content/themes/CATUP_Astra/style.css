@@ -43,6 +43,7 @@ Text Domain: catup-astra
     justify-content: center; /* centra horizontalmente */
     margin: 0 auto;          /* asegura que el contenedor se centre */
     padding: 40px;         /* espacio arriba y abajo */
+    overflow: hidden;
 }
 
 /* --- Contenedor del slide --- */
@@ -119,21 +120,60 @@ white-space: nowrap;
     }
 }
 
-.novedad-navigation{
+.novedad-navigation {
     display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
     justify-content: space-between;
-    margin: 20px 0;
-    font-family: 'Lato', sans-serif;
 }
 
-.nav-next, .nav-previous {
- background: #2182A5;
- color: #ffffff;
- padding: 10px 15px;
- border-radius: 5px;
+.novedad-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
 }
-.nav-next a, .nav-previous a {
- color: #ffffff;
+
+.novedad-navigation .nav-next,
+.novedad-navigation .nav-previous {
+    background: #2182A5;
+    color: #fff;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    line-height: 1.2;
+    transition: background .2s;
+}
+
+.novedad-navigation .nav-next a,
+.novedad-navigation .nav-previous a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.novedad-navigation .nav-next:hover,
+.novedad-navigation .nav-previous:hover {
+    background:#1a6a84;
+}
+
+.novedad-navigation .nav-next.disabled,
+.novedad-navigation .nav-previous.disabled {
+    background:#ccc;
+    cursor: default;
+}
+
+/* Solo en pantallas pequeñas */
+@media (max-width: 600px) {
+    .novedad-navigation {
+        gap: 8px;
+    }
+    .novedad-navigation .nav-next,
+    .novedad-navigation .nav-previous {
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: 4px;
+    }
 }
 
 .scpt-servicios-grid {
@@ -214,6 +254,7 @@ white-space: nowrap;
     padding: 4rem 2rem;
     border-radius: 8px;
 }
+
 
 
 /* Opcional: responsive */

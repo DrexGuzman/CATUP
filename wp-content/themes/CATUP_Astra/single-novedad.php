@@ -41,14 +41,14 @@
                     $next_post = get_adjacent_post(false, '', false);
                     $next_link = get_next_post_link('%link', '← Novedad siguiente');
                     ?>
-                    <div class="nav-next" style="<?php echo !$next_post ? 'background-color: #ccc;' : ''; ?>">
+                    <div class="nav-next <?php echo !$next_post ? 'disabled' : ''; ?>">
                         <?php echo $next_link ? $next_link : '← Novedad siguiente'; ?>
-                    </div>    
+                    </div>
                     <?php
                     $prev_post = get_adjacent_post(false, '', true);
                     $prev_link = get_previous_post_link('%link', 'Novedad anterior →');
                     ?>
-                    <div class="nav-previous" style="<?php echo !$prev_post ? 'background-color: #ccc;' : ''; ?>">
+                    <div class="nav-previous <?php echo !$prev_post ? 'disabled' : ''; ?>">
                         <?php echo $prev_link ? $prev_link : 'Novedad anterior →'; ?>
                     </div>
                 </nav>

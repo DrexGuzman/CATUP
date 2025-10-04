@@ -100,7 +100,7 @@ function ncpt_shortcode_carrusel( $atts ) {
     ));
     if ( $query->have_posts() ) : ?>
         <div class="ncpt-carrusel swiper-container">
-            <div class="swiper-wrapper">
+            <div class="swiper-wrapper" >
                 <?php while ( $query->have_posts() ) : $query->the_post();
                     $lugar = get_post_meta( get_the_ID(), '_ncpt_lugar', true );
                     $fecha = get_post_meta( get_the_ID(), '_ncpt_fecha', true );
@@ -140,7 +140,7 @@ function ncpt_enqueue_assets() {
     wp_add_inline_script( 'swiper-js', "
         document.addEventListener('DOMContentLoaded', function(){
             new Swiper('.ncpt-carrusel', {
-                loop: true,
+                loop: false,
                 slidesPerView: 2,
                 spaceBetween: 40,
                 pagination: { el: '.swiper-pagination', clickable: true },

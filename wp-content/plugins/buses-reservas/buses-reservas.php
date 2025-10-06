@@ -288,8 +288,9 @@ function br_buses_reservas_shortcode() {
     ob_start();
     $mes  = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
     $anio = isset($_GET['anio']) ? intval($_GET['anio']) : date('Y'); ?>
-    <form method="get" class="br-filtro-fechas">
-        <label for="mes">Mes:</label>
+    <form method="get">
+        <div  class="br-filtro-fechas">
+            <label for="mes">Mes:</label>
         <select name="mes" id="mes">
             <?php for ($m=1;$m<=12;$m++): ?>
                 <option value="<?php echo $m; ?>" <?php selected($mes,$m); ?>>
@@ -303,9 +304,11 @@ function br_buses_reservas_shortcode() {
                 <option value="<?php echo $y; ?>" <?php selected($anio,$y); ?>><?php echo $y; ?></option>
             <?php endfor; ?>
         </select>
-        <button type="submit">Ver buses</button>
+        </div >
+        <div class="div-buscar-bus">
+            <button class="btn-filtro-fechas" type="submit">Ver buses</button>
+        </div>
     </form>
-    <hr>
     <?php
     $fecha_inicio = "$anio-$mes-01";
     $fecha_fin    = date("Y-m-t", strtotime($fecha_inicio));
@@ -326,7 +329,9 @@ function br_buses_reservas_shortcode() {
     );
     $buses = new WP_Query($args);
     if ( $buses->have_posts() ) {
-        echo '<div class="br-lista-buses">';
+        echo '
+        <h2>Buses disponibles:</h2>
+        <div class="br-lista-buses">';
         while ( $buses->have_posts() ) {
             $buses->the_post();
             $bus_id     = get_the_ID();
@@ -337,14 +342,24 @@ function br_buses_reservas_shortcode() {
             $reservados = br_get_reservados($bus_id);
             $disponibles = max(0, $capacidad - $reservados);
             ?>
-            <div class="br-bus-item">
+            <div class="scpt-card">
+                <?php 
+                // ID de la imagen cargada en la biblioteca de medios de WordPress
+                $img_id = 290; // <-- Cambia este ID por el de tu imagen deseada
+                $logo = wp_get_attachment_image_url($img_id, 'medium');
+                if ( $logo ) : ?>
+                    <div class="scpt-card-logo">
+                        <img src="<?php echo esc_url( $logo ); ?>" alt="Imagen fija">
+                    </div>
+                <?php endif; ?>
                 <h3><?php echo esc_html($titulo); ?></h3>
-                <p><strong>Fecha:</strong> <?php echo date_i18n('d/m/Y', strtotime($fecha)); ?></p>
-                <p><strong>Precio por persona:</strong> $<?php echo number_format($precio,2); ?></p>
-                <p><strong>Disponibles (confirmados):</strong> <?php echo $disponibles; ?> / <?php echo $capacidad; ?></p>
-                <p style="font-size:12px;color:#666;">Los asientos solo se descuentan tras el pago.</p>
+                <div class="scpt-card-info">
+                    <p style="margin-bottom: 0;">Fecha: <?php echo date_i18n('d/m/Y', strtotime($fecha)); ?></p>
+                    <p style="margin-bottom: 0;">Disponibles: <?php echo $disponibles; ?></p>
+                    <p>Precio por persona: $<?php echo number_format($precio,2); ?></p>
+                </div>
                 <?php if ( $disponibles > 0 ): ?>
-                <button class="br-open-modal"
+                    <button class="scpt-btn br-open-modal"
                         data-bus='<?php echo wp_json_encode(array(
                             "id"    => $bus_id,
                             "titulo"=> $titulo,
@@ -352,13 +367,12 @@ function br_buses_reservas_shortcode() {
                             "precio"=> $precio,
                             "max"   => $disponibles
                         )); ?>'>
-                    Reservar y pagar
-                </button>
+                        Reservar
+                    </button>
                 <?php else: ?>
                     <em>Completo</em>
                 <?php endif; ?>
             </div>
-            <hr>
             <?php
         }
         echo '</div>';

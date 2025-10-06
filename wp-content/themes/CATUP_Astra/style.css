@@ -133,6 +133,7 @@ white-space: nowrap;
     flex-direction: column;
     gap: 20px;
     align-items: center;
+    
 }
 
 .novedad-navigation .nav-next,
@@ -255,13 +256,46 @@ white-space: nowrap;
     border-radius: 8px;
 }
 
-
-
 /* Opcional: responsive */
 @media(max-width: 768px){
     .ncpt-slide {
         width: 100%;
         height: 300px; /* altura más pequeña en móvil */
     }
+}
+
+.br-filtro-fechas{
+display: flex;
+align-items: center;
+gap: 1.5rem;
+}
+
+.div-buscar-bus{
+    display: flex;
+    justify-content: center;
+    margin: 1rem 0rem;
+}
+
+.btn-filtro-fechas{
+    gap: 1rem 2rem;
+    width: 100%;
+    background-color: #2182A5;
+    color:white;
+}
+
+.br-lista-buses{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 2rem 0rem;
+}
+
+.scpt-card-info{
+    text-align: center;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #2b3a42ad;
+    margin-bottom: 0rem;
 }
 

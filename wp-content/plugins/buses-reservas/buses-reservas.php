@@ -223,14 +223,32 @@ function br_create_reservation_post( $order_id, $item, $bus_id, $cantidad, $tota
 }
 
 /**
+ * Helper: actualizar estado de reservas (CPT) por ID de pedido
+ */
+function br_update_reservas_estado_by_order( $order_id, $estado ) {
+    $reservas = get_posts(array(
+        'post_type'   => 'bus_reserva',
+        'numberposts' => -1,
+        'meta_key'    => '_br_order_id',
+        'meta_value'  => $order_id,
+        'fields'      => 'ids',
+    ));
+    foreach ( $reservas as $rid ) {
+        update_post_meta( $rid, '_br_estado', $estado );
+    }
+}
+
+/**
  * Confirmar cupos y crear reservas sólo cuando la orden está pagada
  */
 function br_confirm_bus_reservation( $order_id ) {
     $order = wc_get_order( $order_id );
-    if ( ! $order || $order->get_meta('_br_seats_reserved') ) return;
+    // Evitar doble conteo: solo si NO está marcado como 'yes'
+    if ( ! $order || $order->get_meta('_br_seats_reserved') === 'yes' ) return;
+
     $added = false;
     foreach ( $order->get_items() as $item ) {
-        $bus_id = $item->get_meta('_br_bus_id');
+        $bus_id   = $item->get_meta('_br_bus_id');
         $cantidad = intval($item->get_meta('_br_cantidad'));
         if ( $bus_id && $cantidad > 0 ) {
             br_add_reservados( $bus_id, $cantidad );
@@ -242,44 +260,63 @@ function br_confirm_bus_reservation( $order_id ) {
     if ( $added ) {
         $order->update_meta_data('_br_seats_reserved', 'yes');
         $order->save();
+        // Asegurar estado "confirmado" en CPT reserva
+        br_update_reservas_estado_by_order( $order_id, 'confirmado' );
     }
 }
 add_action( 'woocommerce_order_status_processing', 'br_confirm_bus_reservation' );
 add_action( 'woocommerce_order_status_completed', 'br_confirm_bus_reservation' );
 
 /**
- * Liberar cupos (refunded/cancelled) y marcar reservas
+ * Liberar cupos y marcar reservas como canceladas
  */
 function br_release_reservados( $order_id ) {
     $order = wc_get_order( $order_id );
     if ( ! $order ) return;
-    if ( ! $order->get_meta('_br_seats_reserved') ) return;
+
+    // Solo liberar si realmente estaban confirmados
+    if ( $order->get_meta('_br_seats_reserved') !== 'yes' ) return;
+
     foreach ( $order->get_items() as $item ) {
-        $bus_id = $item->get_meta('_br_bus_id');
+        $bus_id   = $item->get_meta('_br_bus_id');
         $cantidad = intval( $item->get_meta('_br_cantidad') );
         if ( $bus_id && $cantidad ) {
             $actual = br_get_reservados( $bus_id );
-            $nuevo = max( 0, $actual - $cantidad );
+            $nuevo  = max( 0, $actual - $cantidad );
             update_post_meta( $bus_id, '_br_reservados', $nuevo );
         }
-        // actualizar reservas asociadas
-        $res = get_posts(array(
-            'post_type'  => 'bus_reserva',
-            'numberposts'=> -1,
-            'meta_query' => array(
-                array('key'=>'_br_order_id','value'=>$order_id),
-                array('key'=>'_br_order_item_id','value'=>$item->get_id())
-            )
-        ));
-        foreach ( $res as $r ) {
-            update_post_meta($r->ID, '_br_estado', 'cancelado');
-        }
     }
+
+    // Marcar reservas como canceladas
+    br_update_reservas_estado_by_order( $order_id, 'cancelado' );
+
+    // Marcar como liberado para evitar doble liberación
     $order->update_meta_data('_br_seats_reserved', 'released');
     $order->save();
 }
 add_action( 'woocommerce_order_status_cancelled', 'br_release_reservados' );
-add_action( 'woocommerce_order_status_refunded', 'br_release_reservados' );
+add_action( 'woocommerce_order_status_refunded',  'br_release_reservados' );
+// También liberar si la orden falla o vuelve a estados no pagados
+add_action( 'woocommerce_order_status_failed',    'br_release_reservados' );
+add_action( 'woocommerce_order_status_pending',   'br_release_reservados' );
+add_action( 'woocommerce_order_status_on-hold',   'br_release_reservados' );
+
+/**
+ * Si se elimina la orden desde el admin, liberar cupos si estaban confirmados
+ */
+function br_release_seats_on_order_delete( $post_id ) {
+    $post = get_post( $post_id );
+    if ( ! $post || $post->post_type !== 'shop_order' ) return;
+
+    $order = wc_get_order( $post_id );
+    if ( ! $order ) return;
+
+    if ( $order->get_meta('_br_seats_reserved') === 'yes' ) {
+        // Reutiliza la lógica principal de liberación
+        br_release_reservados( $post_id );
+    }
+}
+add_action( 'before_delete_post', 'br_release_seats_on_order_delete' );
 
 /**
  * Shortcode listado público con reservas (formulario)
@@ -387,43 +424,58 @@ function br_buses_reservas_shortcode() {
         </div>
     </div>
     <style>
-        .br-modal { display:none; position:fixed; z-index:9999; inset:0; background:rgba(0,0,0,.55); }
-        .br-modal-content { background:#fff; margin:5% auto; padding:20px; max-width:520px; border-radius:8px; position:relative; }
+        .br-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); overflow:auto; -webkit-overflow-scrolling:touch; }
+        .br-modal-content { background:#fff; margin:2% auto; padding:20px; max-width:520px; border-radius:8px; position:relative; max-height:min(90dvh, 90svh, 90vh); overflow:auto; }
         .br-close { position:absolute; top:10px; right:15px; font-size:22px; cursor:pointer; }
         .br-error { background:#ffefef; color:#b10000; padding:8px 10px; border-radius:4px; margin-bottom:10px; font-size:14px; }
         .br-success { background:#e8fff1; color:#0b6b2b; padding:8px 10px; border-radius:4px; margin-bottom:10px; font-size:14px; }
         .br-loading { opacity:.6; pointer-events:none; }
+        .br-submit{ background:#0073aa; color:#fff; border:none; padding:10px 15px; border-radius:4px; cursor:pointer; width:100%;}
     </style>
     <script>
     document.addEventListener("DOMContentLoaded", function() {
         const modal = document.getElementById("br-modal");
         const modalBody = document.getElementById("br-modal-body");
         const closeBtn = document.querySelector(".br-close");
-        function openModal(html){ modalBody.innerHTML = html; modal.style.display='block'; }
-        function closeModal(){ modal.style.display='none'; }
+        function openModal(html){ modalBody.innerHTML = html; modal.style.display='block'; document.body.style.overflow='hidden'; }
+        function closeModal(){ modal.style.display='none'; document.body.style.overflow=''; }
 
         document.querySelectorAll(".br-open-modal").forEach(btn=>{
             btn.addEventListener("click", ()=>{
                 const data = JSON.parse(btn.getAttribute("data-bus"));
                 openModal(`
-                    <h2>Reserva: ${data.titulo}</h2>
+                    <?php 
+                $img_id = 290;
+                $logo = wp_get_attachment_image_url($img_id, 'medium');
+                if ( $logo ) : ?>
+                    <div style="text-align:center;margin-bottom:15px;">
+                        <img style="max-width:30%; height:auto;" src="<?php echo esc_url( $logo ); ?>" alt="Imagen fija">
+                    </div>
+                <?php endif; ?>
+                    <h2>Reserva para el ${data.titulo}</h2>
+                    <div style="display:flex;gap:15px;">
                     <p><strong>Fecha:</strong> ${new Date(data.fecha).toLocaleDateString()}</p>
                     <p><strong>Precio por persona:</strong> $${Number(data.precio).toFixed(2)}</p>
+                    </div>
                     <form id="br-form-reserva">
                         <input type="hidden" name="action" value="br_procesar_reserva">
                         <input type="hidden" name="nonce" value="<?php echo wp_create_nonce('br_reserva'); ?>">
                         <input type="hidden" name="bus_id" value="${data.id}">
-                        <p><label>Cantidad:</label><br>
-                           <input type="number" name="cantidad" id="br-cantidad" min="1" max="${data.max}" required></p>
-                        <div id="br-total" style="margin-bottom:10px;font-weight:bold;"></div>
                         <p><label>Nombre completo:</label><br><input type="text" name="nombre" required></p>
                         <p><label>Identificación:</label><br><input type="text" name="identificacion" required></p>
                         <p><label>Teléfono:</label><br><input type="text" name="telefono" required></p>
                         <p><label>Correo electrónico:</label><br><input type="email" name="correo" required></p>
+                        <p><label>Cantidad:</label><br>
+                           <input type="number" name="cantidad" id="br-cantidad" min="1" max="${data.max}" required></p>
+                        <!-- Cambio: sin position:absolute para no tapar inputs en móvil -->
+                        <div id="br-total" style="margin:10px 0;font-weight:bold;"></div>
                         <div id="br-msg"></div>
-                        <button type="submit" id="br-submit">Procesar y pagar</button>
+                        <button class="br-submit" type="submit" id="br-submit">Procesar y pagar</button>
                     </form>
                 `);
+                // Enfocar primer campo tras abrir (ayuda en móvil)
+                setTimeout(()=>{ modalBody.querySelector('#br-form-reserva input, #br-form-reserva select, #br-form-reserva textarea')?.focus(); }, 50);
+
                 const cantidadInput = modalBody.querySelector("#br-cantidad");
                 const totalDiv = modalBody.querySelector("#br-total");
                 cantidadInput.addEventListener("input", ()=>{
@@ -459,6 +511,16 @@ function br_buses_reservas_shortcode() {
                 });
             });
         });
+
+        // Asegurar que el input enfocado quede visible cuando aparece el teclado
+        document.addEventListener('focusin', (e) => {
+            if (modal.style.display === 'block' && e.target.matches('input, textarea, select')) {
+                setTimeout(() => {
+                    try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (err) {}
+                }, 50);
+            }
+        });
+
         closeBtn.addEventListener("click", closeModal);
         window.addEventListener("click", e => { if(e.target===modal) closeModal(); });
     });
